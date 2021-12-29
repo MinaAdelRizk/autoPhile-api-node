@@ -70,7 +70,7 @@ function validateFluid(fluid) {
         volume: Joi.string().required(),
         numberInStock: Joi.number().min(0).max(255).required(),
         seller: Joi.string().required(),
-        productImage: Joi.string()
+        productImage: Joi.object()
     })
 
     const value = schema.validate(fluid)

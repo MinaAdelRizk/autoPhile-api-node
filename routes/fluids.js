@@ -1,6 +1,7 @@
 const { Fluid, validate } = require('../models/fluid')
 const { Category } = require('../models/category');
 const { Seller } = require('../models/seller');
+const { Manufacturer } = require('../models/manufacturer')
 const express = require('express');
 const router = express.Router()
 const populateSellerListings = require('../middleware/population')
@@ -8,7 +9,8 @@ const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 
 const multer = require('multer');
-const { Manufacturer } = require('../models/manufacturer');
+
+// const upload = multer({ destination: 'uploads/' })
 
 router.get('/', async (req, res) => {
     const fluids = await Fluid.find().sort('name');
@@ -25,6 +27,8 @@ router.get('/:id', async (req, res) => {
     }
 })
 
+//file upload
+
 const fileFilter = (req, file, cb) => {
     if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
         cb(null, true)
@@ -35,14 +39,11 @@ const fileFilter = (req, file, cb) => {
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, './uploads/');
+        cb(null, 'uploads/');
     },
     filename: function (req, file, cb) {
         cb(null, file.originalname);
-        let name = file["originalname"]
-        // name = name.trim()
-        //not working as of now
-        cb(null, Date.now() + name)
+        cb(null, Date.now() + file.originalname)
     },
     fileFilter: fileFilter
 });
@@ -54,15 +55,12 @@ const upload = multer({
     }
 });
 
+router.post('/', auth, upload.single("productImage"), async (req, res) => {
 
-router.post('/', auth, upload.single('productImage'), async (req, res) => {
-    console.log(req.file);
-
-    const { error } = validate(req.body)
-    if (error) return res.status(400).send(error.details[0].message)
-    // .send(error.details[0].message)
-
+    console.log(req.file)
     try {
+        const { error } = validate(req.body)
+        if (error) return res.status(400).send(error.details[0].message)
 
         const category = await Category.findById(req.body.category)
         if (!category) return res.status(400).send("Invalid Category")
@@ -70,9 +68,8 @@ router.post('/', auth, upload.single('productImage'), async (req, res) => {
         let seller = await Seller.findById(req.user.sellerId)
         if (!seller) return res.status(404).send("No Seller found with the given seller Id")
 
-        console.log(req.file)
-        // let mnf = await Manufacturer.findById(req.body.mnf);
-        // if (!mnf) return res.status(404).send("No Manufacturer found with the given ID")
+        let mnf = await Manufacturer.findById(req.body.mnf);
+        if (!mnf) return res.status(404).send("No Manufacturer found with the given ID")
 
         const fluid = new Fluid({
             title: req.body.title,
@@ -80,14 +77,12 @@ router.post('/', auth, upload.single('productImage'), async (req, res) => {
             type: req.body.type,
             price: req.body.price,
             vsc: req.body.vsc,
-            // mnf: { name: mnf.name, _id: mnf._id },
-            mnf: req.body.mnf,
+            mnf: { name: mnf.name, _id: mnf._id },
+            // mnf: req.body.mnf,
             volume: req.body.volume,
             numberInStock: req.body.numberInStock,
             date: Date.now(),
-            seller: {
-                _id: seller._id, name: seller.name, rating: seller.rating
-            },
+            seller: { _id: seller._id, name: seller.name, rating: seller.rating },
             productImage: req.file.path
         });
 
@@ -115,8 +110,10 @@ router.delete('/:id', [auth, admin], async (req, res) => {
         let { listings } = seller
         let index = listings.indexOf({ itemId: req.params.id })
         listings.splice(index, 1)
+
         await seller.save()
         const fluid = await Fluid.findByIdAndDelete(req.params.id)
+            .then(console.log("Fluid Deleted"))
         if (!fluid) return res.status(404).send("Cannot find a fluid with the given ID")
 
         res.send(fluid);

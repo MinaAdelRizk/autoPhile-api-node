@@ -14,7 +14,13 @@ const users = require('./routes/users')
 const auth = require('./routes/auth')
 const express = require('express');
 
+
 const app = express();
+// app.use(express.json())
+
+app.use(express.json({ limit: '50mb' }));
+
+
 // const home = require('./routes/home');
 
 // config.get('jwtPrivatekey')
@@ -26,7 +32,6 @@ if (!config.get('jwtPrivateKey')) {
 
 // process.env['ALLOW_CONFIG_MUTATIONS'] = true;
 
-app.use(express.json());
 
 mongoose.connect('mongodb://localhost/autophile', {
     useNewUrlParser: true,
