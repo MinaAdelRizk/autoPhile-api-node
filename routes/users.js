@@ -1,10 +1,10 @@
-const bcrypt = require('bcrypt')
 const { User, validate } = require('../models/user')
-// const mongoose = require('mongoose')
+const auth = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt')
 const _ = require('lodash')
-const auth = require('../middleware/auth');
+
 const { Seller } = require('../models/seller');
 
 //get users
@@ -32,7 +32,7 @@ router.post('/', async (req, res) => {
 
         const token = user.generateAuthToken()
 
-        res.header('x-auth-token', token).send(_.pick(user, ['_id', 'name', 'email', 'seller', 'selectedCar["carName"]']))
+        res.header('x-auth-token', token).send(_.pick(user, ['_id', 'name', 'email', 'mobile', 'seller', 'selectedCar["carName"]']))
 
     } catch (error) {
         res.status(500).send(error.message)

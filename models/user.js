@@ -15,9 +15,11 @@ const userSchema = new mongoose.Schema({
     email: {
         type: String,
         trim: true,
-        required: true,
         minlength: 3,
         maxlength: 255,
+        required: true,
+        lowercase: true,
+        trim: true,
         unique: true
     },
     password: {
@@ -28,9 +30,22 @@ const userSchema = new mongoose.Schema({
         maxlength: 1024
     },
     mobile: {
-        type: Number,
+        type: String,
         trim: true,
-        required: true
+        required: true,
+        trim: true,
+    },
+    address: {
+        type: String
+    },
+    state: {
+        type: String
+    },
+    area: {
+        type: String
+    },
+    country: {
+        type: String
     },
     isAdmin: {
         type: Boolean,
@@ -62,6 +77,7 @@ userSchema.methods.generateAuthToken = function () {
         _id: this._id,
         name: this.name,
         email: this.email,
+        mobile: this.mobile,
         isAdmin: this.isAdmin,
         isSeller: this.isSeller,
         isSp: this.isSp,
@@ -78,9 +94,9 @@ const User = mongoose.model("User", userSchema);
 function validateUser(user) {
     const schema = Joi.object({
         name: Joi.string().min(3).max(50).required(),
-        email: Joi.string().min(5).max(255).required().email(),
+        email: Joi.string().min(5).max(255).trim().required().email(),
         password: Joi.string().min(8).max(255).required(),
-        mobile: Joi.string().regex(/^[0-9]{10}$/).messages({ 'string.pattern.base': `Phone number must have 10 digits, 05X XXXX XXX.` }).required(),
+        mobile: Joi.string().trim().regex(/^[0-9]{1,10}$/).messages({ 'string.pattern.base': `Phone number must have 10 digits, 0501231234.` }).required(),
         sellerId: Joi.objectId(),
         sellerName: Joi.string().min(3).max(55),
         selectetedCar: Joi.object()

@@ -9,6 +9,8 @@ const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const { Manufacturer } = require('../models/manufacturer');
 
+const { upload } = require('../middleware/fileUpload');
+const { deleteProductImage } = require('./files')
 router.get('/', async (req, res) => {
     const tyres = await Tyre.find().sort('name');
     if (!tyres) res.status(404).send('No Tyres Found!')
@@ -21,39 +23,47 @@ router.get('/:id', async (req, res) => {
     res.send(tyre)
 })
 
-router.post('/', async (req, res) => {
-    console.log(req.body)
+router.post('/', [auth, upload.single("productImage")], async (req, res) => {
     try {
 
         const { error } = validate(req.body)
         if (error) return res.status(400).send(error.details[0].message)
 
-        const category = await Category.findById(req.body.category)
-        if (!category) return res.status(400).send("Unable to find a Category with the given ID")
+        const cat = await Category.findById(req.body.category)
+        if (!cat) return res.status(400).send("Unable to find a Category with the given ID")
 
-        const manufacturer = await Manufacturer.findById(req.body.manufacturer)
-        if (!manufacturer) return res.status(400).send("No manufacturer found with the given Id")
-
+        const { manufacturers, types } = cat
+        const mnf = manufacturers.find(m => m._id.toString() === req.body.mnf)
+        const type = types.find(t => t._id.toString() === req.body.type)
         //add sub category
         let seller = await Seller.findById(req.body.seller)
         if (!seller) return res.status(400).send("No Seller found with the given SellerID")
         //here we can query the seller ID through the JWT if isSeller: true; !! strength point
 
         const tyre = new Tyre({
-            title: req.body.title,
-            category: { name: category.name, _id: category._id },
+            title: `${mnf.name} ${req.body.width}/${req.body.height}/R${req.body.rim} ${type.name.split(' ')[0]}`,
+            category: {
+                name: cat.name,
+                _id: cat._id
+            },
+            type: type,
             width: req.body.width,
             height: req.body.height,
             rim: req.body.rim,
             year: req.body.year,
-            manufacturer: { name: manufacturer.name, _id: manufacturer._id },
+            mnf: {
+                name: mnf.name,
+                _id: mnf._id
+            },
             price: req.body.price,
             numberInStock: req.body.numberInStock,
             seller: {
                 _id: seller._id,
                 name: seller.name,
                 rating: seller.rating
-            }
+            },
+            homeInstallation: req.body.homeInstallation,
+            productImage: req.file.filename
         })
 
         console.log(tyre)
@@ -90,7 +100,7 @@ router.put('/:id', async (req, res) => {
 
         const tyre = await Tyre.findByIdAndUpdate(req.params.id, {
             $set: {
-                title: req.body.title,
+                title: function () { return this.manufacturer.name + this.width + this.heigh + this.rim },
                 category: { _id: category._id, name: category.name },
                 width: req.body.width,
                 height: req.body.height,
@@ -99,7 +109,7 @@ router.put('/:id', async (req, res) => {
                 manufacturer: { name: manufacturer.name, _id: manufacturer._id },
                 price: req.body.price,
                 numberInStock: req.body.numberInStock,
-                seller: { _id: seller._id, name: seller.name }
+                seller: { _id: seller._id, name: seller.name },
             }
         }, { new: true })
 
@@ -125,6 +135,8 @@ router.delete('/:id', [auth, admin], async (req, res) => {
     try {
         const tyre = await Tyre.findByIdAndDelete(req.params.id)
         if (!tyre) return res.status(404).send("No Tyre with the given ID")
+
+        await deleteProductImage(tyre.productImage)
 
         seller.listings.splice(seller.listings.indexOf({ _id: tyre._id }), 1)
 

@@ -8,11 +8,18 @@ const tyreSchema = new mongoose.Schema({
         trim: true,
         required: true,
         minlength: 3,
-        maxlength: 50
+        // maxlength: 60
     },
     category: {
         type: categorySchema,
         required: true
+    },
+    type: {
+        type: Object,
+        trim: true,
+        required: true,
+        minlength: 3,
+        maxlength: 50
     },
     width: {
         type: Number,
@@ -41,7 +48,7 @@ const tyreSchema = new mongoose.Schema({
         minlength: 2018,
         maxlength: 2040
     },
-    manufacturer: {
+    mnf: {
         type: Object,
         trim: true,
         required: true,
@@ -66,6 +73,14 @@ const tyreSchema = new mongoose.Schema({
         // type: mongoose.Schema.Types.ObjectId,
         type: Object,
         required: true,
+    },
+    homeInstallation: {
+        type: Boolean,
+        required: true
+    },
+    productImage: {
+        type: String,
+        required: true
     }
 });
 
@@ -73,15 +88,17 @@ const Tyre = mongoose.model("Tyre", tyreSchema)
 
 function validateTyre(Tyre) {
     const schema = Joi.object({
-        title: Joi.string().min(3).max(50).required(),
+        title: Joi.string().min(3).max(50),
         category: Joi.string().required(),
+        type: Joi.string().required(),
         width: Joi.number().required().min(3).max(750),
         height: Joi.number().min(3).max(255).required(),
         rim: Joi.number().min(3).max(255).required(),
         year: Joi.number().min(2018).max(2040).required(),
-        manufacturer: Joi.string().required(),
+        mnf: Joi.string().required(),
         price: Joi.number().min(0).max(255255).required(),
         numberInStock: Joi.number().min(0).max(255).required(),
+        homeInstallation: Joi.boolean().required(),
         seller: Joi.string().required(),
     })
     return schema.validate(Tyre)

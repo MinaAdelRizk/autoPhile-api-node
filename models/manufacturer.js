@@ -30,3 +30,4 @@ function validateManufacturer(manufacturer) {
 
 module.exports.Manufacturer = Manufacturer;
 module.exports.validate = validateManufacturer;
+module.exports.manufacturerSchema = manufacturerSchema;

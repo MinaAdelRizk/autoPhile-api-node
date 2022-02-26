@@ -1,4 +1,4 @@
-const { Fluid, validate } = require('../models/fluid')
+const { Fluid, schema, validate } = require('../models/fluid')
 const { Category } = require('../models/category');
 const { Seller } = require('../models/seller');
 const { Manufacturer } = require('../models/manufacturer')
@@ -8,9 +8,18 @@ const populateSellerListings = require('../middleware/population')
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 
-const multer = require('multer');
+const mongoose = require('mongoose')
 
+const { File } = require('../models/file')
 // const upload = multer({ destination: 'uploads/' })
+
+const { upload } = require('../middleware/fileUpload');
+const Grid = require('gridfs-stream')
+// const { gfs } = require('../routes/files')
+const { deleteProductImage } = require('./files');
+
+let assert = require('assert');
+
 
 router.get('/', async (req, res) => {
     const fluids = await Fluid.find().sort('name');
@@ -27,66 +36,36 @@ router.get('/:id', async (req, res) => {
     }
 })
 
-//file upload
-
-const fileFilter = (req, file, cb) => {
-    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
-        cb(null, true)
-    } else {
-        cb(null, false)
-    }
-}
-
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        cb(null, file.originalname);
-        cb(null, Date.now() + file.originalname)
-    },
-    fileFilter: fileFilter
-});
-
-const upload = multer({
-    storage: storage,
-    limits: {
-        fileSize: 1024 * 1024 * 10
-    }
-});
-
-router.post('/', auth, upload.single("productImage"), async (req, res) => {
-
-    console.log(req.file)
+router.post('/', [auth, upload.single("productImage")], async (req, res) => {
     try {
         const { error } = validate(req.body)
         if (error) return res.status(400).send(error.details[0].message)
 
-        const category = await Category.findById(req.body.category)
-        if (!category) return res.status(400).send("Invalid Category")
+        const cat = await Category.findById(req.body.category)
+        if (!cat) return res.status(400).send("Invalid Category")
+
+        const { manufacturers, types } = cat
+
+        const mnf = manufacturers.find(m => m._id.toString() === req.body.mnf)
+        const type = types.find(t => t._id.toString() === req.body.type)
 
         let seller = await Seller.findById(req.user.sellerId)
         if (!seller) return res.status(404).send("No Seller found with the given seller Id")
 
-        let mnf = await Manufacturer.findById(req.body.mnf);
-        if (!mnf) return res.status(404).send("No Manufacturer found with the given ID")
-
         const fluid = new Fluid({
             title: req.body.title,
-            category: { name: category.name, _id: category._id },
-            type: req.body.type,
+            category: { name: cat.name, _id: cat._id },
+            type: type,
             price: req.body.price,
             vsc: req.body.vsc,
-            mnf: { name: mnf.name, _id: mnf._id },
-            // mnf: req.body.mnf,
+            mnf: mnf,
             volume: req.body.volume,
             numberInStock: req.body.numberInStock,
             date: Date.now(),
             seller: { _id: seller._id, name: seller.name, rating: seller.rating },
-            productImage: req.file.path
+            productImage: req.file.filename
         });
 
-        console.log(fluid)
         await fluid.save();
         populateSellerListings(seller, fluid)
         res.send(fluid)
@@ -94,33 +73,76 @@ router.post('/', auth, upload.single("productImage"), async (req, res) => {
     } catch (error) {
         res.status(500).send(error.message)
     }
-    // try {
-    //     const result = await fluid.save();
-    //     if (!result) res.send(result)
-    //     res.send(result)
-    // } catch (error) {
-    //     res.status(500).send(error.message)
-    // }
+
 });
+
 
 router.delete('/:id', [auth, admin], async (req, res) => {
-    try {
-        let seller = await Seller.findById(req.user.sellerId)
-        if (!seller) return res.status(404).send("No Seller found with the given seller Id")
-        let { listings } = seller
-        let index = listings.indexOf({ itemId: req.params.id })
-        listings.splice(index, 1)
 
-        await seller.save()
-        const fluid = await Fluid.findByIdAndDelete(req.params.id)
-            .then(console.log("Fluid Deleted"))
-        if (!fluid) return res.status(404).send("Cannot find a fluid with the given ID")
+    const session = await Fluid.startSession();
+    await session.withTransaction(async () => {
 
-        res.send(fluid);
-    } catch (error) {
-        res.status(500).send("something went wrong or Invalid ID")
-    }
+        try {
+            let seller = await Seller.findById(req.user.sellerId).session(session)
+
+            if (req.user.sellerId !== req.params.id && (!req.user.isAdmin)) return res.status(401).send("You can only delete your listings")
+            if (!seller) return res.status(400).send("No Seller found with the given seller Id")
+
+            const listings = seller.listings
+
+            const index = listings.indexOf({ itemId: req.params.id })
+            listings.splice(index, 1)
+
+            seller.listings = listings
+            await seller.save()
+
+
+            const fluid = await Fluid.findByIdAndDelete(req.params.id).session(session)
+            if (!fluid) return res.status(404).send("Cannot find a fluid with the given ID")
+
+            await deleteProductImage(fluid.productImage)
+
+            res.send(fluid);
+
+        } catch (error) {
+
+            console.log(error)
+            res.status(500).send(error)
+        }
+    });
+    session.endSession();
 });
+
+// router.delete('/:id', [auth, admin], async (req, res) => {
+//     try {
+//         let seller = await Seller.findById(req.user.sellerId)
+//         if (!seller) return res.status(404).send("No Seller found with the given seller Id")
+//         let { listings } = seller
+//         let index = listings.indexOf({ itemId: req.params.id })
+//         listings.splice(index, 1)
+//         await seller.save()
+
+//         // const { productImage } = await Fluid.findById(req.params.id)
+//         // deleteProductImage(productImage)
+
+//         // if (!file) return res.status(404).send("no image found with the given name")
+//         // await File.deleteOne({ filename: productImage })
+//         //     .then(console.log("attempt to delete"))
+//         // // fs.unlink(object.productImage, (err) => {
+//         //     if (err) {
+//         //         console.log(err)
+//         //     }
+//         // })
+
+//         const fluid = await Fluid.findByIdAndDelete(req.params.id)
+//         if (!fluid) return res.status(404).send("Cannot find a fluid with the given ID")
+
+//         res.send(fluid);
+
+//     } catch (error) {
+//         res.status(500).send(error)
+//     }
+// });
 
 router.put('/:id', async (req, res) => {
     try {

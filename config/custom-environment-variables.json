@@ -1,3 +1,4 @@
 {
-    "jwtPrivateKey": "autophile_jwtPrivateKey"
+    "jwtPrivateKey": "autophile_jwtPrivateKey",
+    "db": "vidly_db"
 }

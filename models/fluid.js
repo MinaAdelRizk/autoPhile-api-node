@@ -2,7 +2,7 @@ const Joi = require('joi');
 const mongoose = require('mongoose');
 const { categorySchema } = require('./category');
 
-const Fluid = mongoose.model("Fluid", new mongoose.Schema({
+const fluidSchema = new mongoose.Schema({
     title: {
         type: String,
         trim: true,
@@ -12,18 +12,19 @@ const Fluid = mongoose.model("Fluid", new mongoose.Schema({
     category: {
         // type: mongoose.Schema.Types.ObjectId,
         // ref: 'Category',
-        type: categorySchema,
-        required: true
+        // type: categorySchema,
+        type: Object,
+        required: true,
     },
     type: {
-        type: String,
+        type: Object,
         required: true,
-        minlength: 2
+        minlength: 1,
     },
     price: {
         type: String,
         required: true,
-        minlength: 2
+        minlength: 1
     },
     vsc: {
         type: String,
@@ -57,7 +58,9 @@ const Fluid = mongoose.model("Fluid", new mongoose.Schema({
         type: String,
         required: true
     }
-}))
+});
+
+const Fluid = mongoose.model("Fluid", fluidSchema)
 
 function validateFluid(fluid) {
     const schema = Joi.object({
@@ -70,7 +73,7 @@ function validateFluid(fluid) {
         volume: Joi.string().required(),
         numberInStock: Joi.number().min(0).max(255).required(),
         seller: Joi.string().required(),
-        productImage: Joi.object()
+        productImage: Joi.string()
     })
 
     const value = schema.validate(fluid)
@@ -79,3 +82,4 @@ function validateFluid(fluid) {
 
 module.exports.Fluid = Fluid;
 module.exports.validate = validateFluid;
+module.exports.schema = fluidSchema

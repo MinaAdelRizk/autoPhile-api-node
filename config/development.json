@@ -1,6 +1,4 @@
 {
-    "name": "AutoPhile",
-    "jwtPrivateKey": "",
+    "name": "AutoPhile App - Development",
     "MONGODB_URI" : "mongodb://MinaAbdelmalek:autophile1234@autophile-shard-00-00.5gxa9.mongodb.net:27017,autophile-shard-00-01.5gxa9.mongodb.net:27017,autophile-shard-00-02.5gxa9.mongodb.net:27017/AutoPhile?ssl=true&replicaSet=atlas-8vuxga-shard-0&authSource=admin&retryWrites=true&w=majority"
-
 }

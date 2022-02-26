@@ -8,8 +8,8 @@ const idValidate = require('../middleware/idValidate');
 const { Category } = require('../models/category');
 
 router.get('/', async (req, res) => {
-    const manufacturer = await Manufacturer.find().sort('name');
-    res.send(manufacturer)
+    const manufacturers = await Manufacturer.find().sort('category');
+    res.send(manufacturers)
 })
 
 router.get('/:id', idValidate, async (req, res) => {
@@ -18,7 +18,7 @@ router.get('/:id', idValidate, async (req, res) => {
     res.send(manufacturer)
 })
 
-router.post('/', [auth, admin], async (req, res) => {
+router.post('/', async (req, res) => {
     const { error } = validate(req.body)
     if (error) return res.status(400).send(error.details[0].message)
 
